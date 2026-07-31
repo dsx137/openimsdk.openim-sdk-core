@@ -85,7 +85,14 @@ func (c *Conversation) syncFlag(c2v common.Cmd2Value) {
 			c.IncrSyncConversations,
 			c.SyncAllConversationHashReadSeqs,
 		}
+		// Serialize with the message-sync batch writer (doMsgNew): overwriting
+		// maxSeqRecorder and unread_count here while doMsgNew is mid-batch makes
+		// the remaining real messages look already-counted (IsNewMsg false), so
+		// their unread increment is lost and the DB unread count is permanently
+		// one short. The mutex is not held by syncData's WithLock variants.
+		c.conversationSyncMutex.Lock()
 		runSyncFunctions(ctx, syncWaitFunctions, syncWait)
+		c.conversationSyncMutex.Unlock()
 		log.ZWarn(ctx, "core data sync over", nil, "cost time", time.Since(c.startTime).Seconds())
 		c.addInitProgress(InitSyncProgress * 6 / 10)              // add 60% of InitSyncProgress as progress
 		c.ConversationListener().OnSyncServerProgress(c.progress) // notify server current Progress
