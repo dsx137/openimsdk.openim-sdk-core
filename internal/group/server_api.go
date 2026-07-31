@@ -2,6 +2,7 @@ package group
 
 import (
 	"context"
+	"time"
 
 	"github.com/openimsdk/openim-sdk-core/v3/pkg/api"
 	"github.com/openimsdk/protocol/group"
@@ -12,8 +13,26 @@ func (g *Group) getFullGroupMemberUserIDs(ctx context.Context, req *group.GetFul
 	return api.GetFullGroupMemberUserIDs.Invoke(ctx, req)
 }
 
+// getIncrementalJoinGroup retries the incremental pull because it is idempotent
+// (the server returns the delta for the given version) and a transient slow
+// response would otherwise fail group creation or login sync outright.
 func (g *Group) getIncrementalJoinGroup(ctx context.Context, req *group.GetIncrementalJoinGroupReq) (*group.GetIncrementalJoinGroupResp, error) {
-	return api.GetIncrementalJoinGroup.Invoke(ctx, req)
+	var (
+		resp *group.GetIncrementalJoinGroupResp
+		err  error
+	)
+	for attempt := 0; attempt < 3; attempt++ {
+		resp, err = api.GetIncrementalJoinGroup.Invoke(ctx, req)
+		if err == nil {
+			return resp, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Duration(1<<attempt) * time.Second):
+		}
+	}
+	return nil, err
 }
 
 func (g *Group) getFullJoinGroupIDs(ctx context.Context, req *group.GetFullJoinGroupIDsReq) (*group.GetFullJoinGroupIDsResp, error) {
