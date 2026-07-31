@@ -2,6 +2,7 @@ package sdk_user_simulator
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/config"
@@ -274,7 +275,7 @@ type TestSendMsgCallBackListener struct {
 }
 
 func (t TestSendMsgCallBackListener) OnError(errCode int32, errMsg string) {
-
+	fmt.Printf(">>> SEND CALLBACK ERROR userID=%s code=%d msg=%s\n", t.UserID, errCode, errMsg)
 }
 
 func (t TestSendMsgCallBackListener) OnSuccess(data string) {
