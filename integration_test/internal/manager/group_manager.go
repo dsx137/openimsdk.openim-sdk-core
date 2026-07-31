@@ -30,7 +30,7 @@ func NewGroupManager(m *MetaManager) *TestGroupManager {
 func (m *TestGroupManager) CreateGroups(ctx context.Context) error {
 	defer decorator.FuncLog(ctx)()
 
-	gr, cctx := reerrgroup.WithContext(ctx, config.ErrGroupSmallLimit)
+	gr, cctx := reerrgroup.WithContext(ctx, config.ErrGroupCommonLimit)
 	var (
 		total int
 		now   int
