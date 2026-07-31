@@ -39,10 +39,11 @@ type CounterChecker[T any, K comparable] struct {
 	checkNumName    string // used for printing logs
 	CheckerKeyName  string // used for printing logs
 	GoroutineLimit  int
-	GetTotalCount   func(ctx context.Context, t T) (int, error) // get now total count
-	CalCorrectCount func(key K) int                             // return correct num
-	LoopSlice       []T                                         // circular slicing
-	GetKey          func(t T) K                                 // get checkers key from a type
+	GetTotalCount   func(ctx context.Context, t T) (int, error)        // get now total count
+	CalCorrectCount func(key K) int                                    // return correct num
+	LoopSlice       []T                                                // circular slicing
+	GetKey          func(t T) K                                        // get checkers key from a type
+	OnFail          func(ctx context.Context, t T, total, correct int) // optional failure diagnostics
 }
 
 func (c *CounterChecker[T, K]) Init() {
@@ -143,6 +144,9 @@ func (c *CounterChecker[T, K]) LoopCheck(ctx context.Context) error {
 					log.ZWarn(ctx, checkMsg, nil, c.CheckerKeyName, key, c.checkNumName, totalNum, "correct num", correctNum)
 
 					if checkCount == config.MaxCheckLoopNum {
+						if c.OnFail != nil {
+							c.OnFail(ctx, t, totalNum, correctNum)
+						}
 						return errs.New(checkMsg, c.CheckerKeyName, key, c.checkNumName, totalNum, "correct num", correctNum).Wrap()
 					}
 				} else {

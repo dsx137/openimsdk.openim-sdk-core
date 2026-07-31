@@ -2,10 +2,12 @@ package checker
 
 import (
 	"context"
+	"fmt"
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/config"
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/pkg/utils"
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/sdk"
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/vars"
+	"github.com/openimsdk/openim-sdk-core/v3/pkg/sdk_params_callback"
 )
 
 // CheckMessageNum check message num.
@@ -111,6 +113,35 @@ func CheckMessageNum(ctx context.Context) error {
 		LoopSlice: sdk.TestSDKs,
 		GetKey: func(t *sdk.TestSDK) string {
 			return t.UserID
+		},
+		OnFail: func(ctx context.Context, t *sdk.TestSDK, total, correct int) {
+			// Diagnostics for message num mismatch: print per-conversation unread
+			// detail and local message counts so we can tell whether the gap is
+			// a send failure (server missing messages) or a sync gap (local
+			// messages missing), vs a pure unread-count race.
+			fmt.Printf(">>> DIAG message num mismatch userID=%s unread=%d correct=%d\n", t.UserID, total, correct)
+			convs, err := t.SDK.Conversation().GetAllConversationList(ctx)
+			if err != nil {
+				fmt.Printf(">>> DIAG GetAllConversationList err=%v\n", err)
+				return
+			}
+			var localSum int64
+			for _, c := range convs {
+				params := sdk_params_callback.GetAdvancedHistoryMessageListParams{
+					ConversationID: c.ConversationID,
+					Count:          1,
+					ViewType:       0,
+				}
+				res, err := t.SDK.Conversation().GetAdvancedHistoryMessageList(ctx, params)
+				if err != nil {
+					fmt.Printf(">>> DIAG conv=%s unread=%d hist err=%v\n", c.ConversationID, c.UnreadCount, err)
+					continue
+				}
+				fmt.Printf(">>> DIAG conv=%s unread=%d latest_time=%d hist_len=%d\n",
+					c.ConversationID, c.UnreadCount, c.LatestMsgSendTime, len(res.MessageList))
+				localSum += int64(len(res.MessageList))
+			}
+			fmt.Printf(">>> DIAG local_messages=%d conversations=%d\n", localSum, len(convs))
 		},
 	}
 
