@@ -78,9 +78,27 @@ func diagnoseMessageCount(ctx context.Context, testSDK *sdk.TestSDK, total, corr
 				}
 			}
 		}
-		fmt.Printf(">>> DIAG userID=%s conv=%s local_unread=%d local_text_messages=%d local_message_seqs=%v recorder_max_seq=%d local_max_seq=%d server_unread=%d server_max_seq=%d server_has_read_seq=%d\n",
+		localGroupCreatedNotifications := -1
+		groupCreatedResult, groupCreatedErr := testSDK.SDK.Conversation().SearchLocalMessages(ctx, &sdk_params_callback.SearchLocalMessagesParams{
+			ConversationID:  conversationID,
+			MessageTypeList: []int{constant.GroupCreatedNotification},
+			PageIndex:       1,
+			Count:           1000,
+		})
+		var localGroupCreatedSeqs []int64
+		if groupCreatedErr == nil {
+			localGroupCreatedNotifications = groupCreatedResult.TotalCount
+			localGroupCreatedSeqs = make([]int64, 0, localGroupCreatedNotifications)
+			for _, item := range groupCreatedResult.SearchResultItems {
+				for _, message := range item.MessageList {
+					localGroupCreatedSeqs = append(localGroupCreatedSeqs, message.Seq)
+				}
+			}
+		}
+		fmt.Printf(">>> DIAG userID=%s conv=%s local_unread=%d local_text_messages=%d local_message_seqs=%v local_group_created=%d local_group_created_seqs=%v recorder_max_seq=%d local_max_seq=%d server_unread=%d server_max_seq=%d server_has_read_seq=%d\n",
 			testSDK.UserID, conversationID, localByID[conversationID], localTextMessages,
-			localMessageSeqs, testSDK.SDK.Conversation().GetMaxSeqForDiagnostic(conversationID),
+			localMessageSeqs, localGroupCreatedNotifications, localGroupCreatedSeqs,
+			testSDK.SDK.Conversation().GetMaxSeqForDiagnostic(conversationID),
 			localMaxSeqByID[conversationID], serverUnread, seq.MaxSeq, seq.HasReadSeq)
 		delete(localByID, conversationID)
 	}
