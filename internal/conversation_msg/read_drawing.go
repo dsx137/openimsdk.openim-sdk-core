@@ -195,6 +195,8 @@ func (c *Conversation) doUnreadCount(ctx context.Context, conversation *model_st
 			return errs.New("currentMaxSeq is 0", "conversationID", conversation.ConversationID).Wrap()
 		} else {
 			unreadCount := currentMaxSeq - hasReadSeq
+			log.ZWarn(ctx, "update unread count from read drawing", nil, "conversationID", conversation.ConversationID,
+				"currentMaxSeq", currentMaxSeq, "hasReadSeq", hasReadSeq, "unreadCount", unreadCount)
 			if unreadCount < 0 {
 				log.ZWarn(ctx, "unread count is less than 0", nil, "conversationID", conversation.ConversationID, "currentMaxSeq", currentMaxSeq, "hasReadSeq", hasReadSeq)
 				unreadCount = 0
