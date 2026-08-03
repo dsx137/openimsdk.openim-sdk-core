@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/sdk"
 	"github.com/openimsdk/openim-sdk-core/v3/pkg/constant"
@@ -18,12 +19,20 @@ func diagnoseMessageCount(ctx context.Context, testSDK *sdk.TestSDK, total, corr
 	}
 
 	resp := &msg.GetConversationsHasReadAndMaxSeqResp{}
-	err = testSDK.SDK.Conversation().SendReqWaitResp(
-		ctx,
-		&msg.GetConversationsHasReadAndMaxSeqReq{UserID: testSDK.UserID},
-		constant.GetConvMaxReadSeq,
-		resp,
-	)
+	for attempt := 0; attempt < 3; attempt++ {
+		err = testSDK.SDK.Conversation().SendReqWaitResp(
+			ctx,
+			&msg.GetConversationsHasReadAndMaxSeqReq{UserID: testSDK.UserID},
+			constant.GetConvMaxReadSeq,
+			resp,
+		)
+		if err == nil {
+			break
+		}
+		if attempt < 2 {
+			time.Sleep(time.Second)
+		}
+	}
 	if err != nil {
 		fmt.Printf(">>> DIAG userID=%s GetConversationsHasReadAndMaxSeq err=%v\n", testSDK.UserID, err)
 		return

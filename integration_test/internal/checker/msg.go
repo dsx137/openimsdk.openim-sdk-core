@@ -2,6 +2,7 @@ package checker
 
 import (
 	"context"
+	"sync"
 
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/config"
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/pkg/utils"
@@ -11,6 +12,8 @@ import (
 
 // CheckMessageNum check message num.
 func CheckMessageNum(ctx context.Context) error {
+	var diagnoseOnce sync.Once
+
 	createdLargeGroupNum := vars.LargeGroupNum / vars.LoginUserNum
 	corrects := func() [3]int {
 		// corrects[0]: super user msg num
@@ -114,7 +117,9 @@ func CheckMessageNum(ctx context.Context) error {
 			return t.UserID
 		},
 		OnFail: func(ctx context.Context, t *sdk.TestSDK, total, correct int) {
-			diagnoseMessageCount(ctx, t, total, correct)
+			diagnoseOnce.Do(func() {
+				diagnoseMessageCount(ctx, t, total, correct)
+			})
 		},
 	}
 
