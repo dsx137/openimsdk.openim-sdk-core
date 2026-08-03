@@ -68,11 +68,19 @@ func diagnoseMessageCount(ctx context.Context, testSDK *sdk.TestSDK, total, corr
 			PageIndex:       1,
 			Count:           1000,
 		})
+		var localMessageSeqs []int64
 		if searchErr == nil {
 			localTextMessages = searchResult.TotalCount
+			localMessageSeqs = make([]int64, 0, localTextMessages)
+			for _, item := range searchResult.SearchResultItems {
+				for _, message := range item.MessageList {
+					localMessageSeqs = append(localMessageSeqs, message.Seq)
+				}
+			}
 		}
-		fmt.Printf(">>> DIAG userID=%s conv=%s local_unread=%d local_text_messages=%d local_max_seq=%d server_unread=%d server_max_seq=%d server_has_read_seq=%d\n",
+		fmt.Printf(">>> DIAG userID=%s conv=%s local_unread=%d local_text_messages=%d local_message_seqs=%v recorder_max_seq=%d local_max_seq=%d server_unread=%d server_max_seq=%d server_has_read_seq=%d\n",
 			testSDK.UserID, conversationID, localByID[conversationID], localTextMessages,
+			localMessageSeqs, testSDK.SDK.Conversation().GetMaxSeqForDiagnostic(conversationID),
 			localMaxSeqByID[conversationID], serverUnread, seq.MaxSeq, seq.HasReadSeq)
 		delete(localByID, conversationID)
 	}

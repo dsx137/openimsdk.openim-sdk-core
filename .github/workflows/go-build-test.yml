@@ -103,7 +103,7 @@ jobs:
         if: failure()
         run: |
           grep -R -E 'GroupCreatedNotification.*failed|Push to queue failed|SendMsg failed|GetConversation error|GetMsgBySeqsRange error|not have msgs' "${SERVER_DIR}/logs" 2>/dev/null || true
-          grep -R -E 'syncMsgFromServer error|pullMsgBySeqRange|do readDrawing|currentMaxSeq|GetMessagesByClientMsgIDs failed' integration_test/logs 2>/dev/null || true
+          grep -R -E 'apply server unread snapshot|syncMsgFromServer error|pullMsgBySeqRange|do readDrawing|currentMaxSeq|GetMessagesByClientMsgIDs failed|triggerCmdNewMsgCome err' integration_test/logs 2>/dev/null || true
 
 #      - name: Stop Server
 #        run: |

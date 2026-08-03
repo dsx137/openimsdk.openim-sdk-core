@@ -50,3 +50,7 @@ func (m *MaxSeqRecorder) IsNewMsg(conversationID string, seq int64) bool {
 	currentSeq := m.seqs[conversationID]
 	return seq > currentSeq
 }
+
+func (c *Conversation) GetMaxSeqForDiagnostic(conversationID string) int64 {
+	return c.maxSeqRecorder.Get(conversationID)
+}

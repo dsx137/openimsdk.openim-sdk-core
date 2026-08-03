@@ -70,6 +70,8 @@ func (c *Conversation) SyncAllConversationHashReadSeqs(ctx context.Context) erro
 		} else {
 			unreadCount = int32(v.MaxSeq - v.HasReadSeq)
 		}
+		log.ZWarn(ctx, "apply server unread snapshot", nil, "conversationID", conversationID,
+			"maxSeq", v.MaxSeq, "hasReadSeq", v.HasReadSeq, "unreadCount", unreadCount)
 		if conversation, ok := conversationsOnLocalMap[conversationID]; ok {
 			if conversation.UnreadCount != unreadCount {
 				if err := c.db.UpdateColumnsConversation(ctx, conversationID, map[string]interface{}{"unread_count": unreadCount}); err != nil {
