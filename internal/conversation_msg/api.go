@@ -143,7 +143,7 @@ func (c *Conversation) SetConversation(ctx context.Context, conversationID strin
 }
 
 func (c *Conversation) GetTotalUnreadMsgCount(ctx context.Context) (totalUnreadCount int32, err error) {
-	return c.db.GetTotalUnreadMsgCountDB(ctx)
+	return c.db.GetTotalUnreadMsgCountNewerDB(ctx)
 }
 
 func (c *Conversation) SetConversationListener(listener func() open_im_sdk_callback.OnConversationListener) {

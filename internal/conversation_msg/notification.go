@@ -227,7 +227,7 @@ func (c *Conversation) doUpdateConversation(c2v common.Cmd2Value) {
 		}
 
 	case constant.TotalUnreadMessageChanged:
-		totalUnreadCount, err := c.db.GetTotalUnreadMsgCountDB(ctx)
+		totalUnreadCount, err := c.db.GetTotalUnreadMsgCountNewerDB(ctx)
 		if err != nil {
 			log.ZWarn(ctx, "GetTotalUnreadMsgCountDB err", err)
 		} else {

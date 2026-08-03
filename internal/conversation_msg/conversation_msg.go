@@ -238,6 +238,7 @@ func (c *Conversation) doMsgNew(c2v common.Cmd2Value) {
 	conversationChangedSet := make(map[string]*model_struct.LocalConversation)
 	newConversationSet := make(map[string]*model_struct.LocalConversation)
 	conversationSet := make(map[string]*model_struct.LocalConversation)
+	unreadOnlySet := make(map[string]*model_struct.LocalConversation)
 	phConversationChangedSet := make(map[string]*model_struct.LocalConversation)
 	phNewConversationSet := make(map[string]*model_struct.LocalConversation)
 	conversationIDs := make([]string, 0, len(allMsg))
@@ -384,6 +385,10 @@ func (c *Conversation) doMsgNew(c2v common.Cmd2Value) {
 					if isConversationUpdate {
 						c.updateConversation(&lc, conversationSet)
 						newMessages = append(newMessages, msg)
+					} else if lc.UnreadCount > 0 {
+						lc.LatestMsg = ""
+						lc.LatestMsgSendTime = 0
+						c.updateConversation(&lc, unreadOnlySet)
 					}
 					if isHistory {
 						othersInsertMessage = append(othersInsertMessage, converter.MsgStructToLocalChatLog(msg))
@@ -424,6 +429,9 @@ func (c *Conversation) doMsgNew(c2v common.Cmd2Value) {
 	log.ZDebug(ctx, "listToMap: ", "local conversation", list, "generated c map", conversationSet)
 
 	c.diff(ctx, m, conversationSet, conversationChangedSet, newConversationSet)
+	for _, conversation := range applyUnreadOnlyChanges(m, unreadOnlySet, conversationChangedSet) {
+		phNewConversationSet[conversation.ConversationID] = conversation
+	}
 	log.ZInfo(ctx, "trigger map is :", "newConversations", newConversationSet, "changedConversations", conversationChangedSet)
 
 	//seq sync message update
@@ -501,7 +509,7 @@ func (c *Conversation) doMsgNew(c2v common.Cmd2Value) {
 
 func (c *Conversation) OnTotalUnreadMessageCountChanged(ctx context.Context) error {
 	log.ZInfo(ctx, "OnTotalUnreadMessageCountChanged", "caller", common.GetCaller(2))
-	totalUnreadCount, err := c.db.GetTotalUnreadMsgCountDB(ctx)
+	totalUnreadCount, err := c.db.GetTotalUnreadMsgCountNewerDB(ctx)
 	if err != nil {
 		log.ZWarn(ctx, "TotalUnreadMessageChanged GetTotalUnreadMsgCountDB err", err)
 	} else {
@@ -832,6 +840,27 @@ func (c *Conversation) updateConversation(lc *model_struct.LocalConversation, cs
 			cs[lc.ConversationID] = oldC
 		}
 	}
+}
+
+func applyUnreadOnlyChanges(
+	local map[string]*model_struct.LocalConversation,
+	unreadOnly map[string]*model_struct.LocalConversation,
+	changed map[string]*model_struct.LocalConversation,
+) []*model_struct.LocalConversation {
+	newHidden := make([]*model_struct.LocalConversation, 0)
+	for conversationID, delta := range unreadOnly {
+		if conversation, ok := changed[conversationID]; ok {
+			conversation.UnreadCount += delta.UnreadCount
+			continue
+		}
+		if conversation, ok := local[conversationID]; ok {
+			conversation.UnreadCount += delta.UnreadCount
+			changed[conversationID] = conversation
+			continue
+		}
+		newHidden = append(newHidden, delta)
+	}
+	return newHidden
 }
 
 func mapConversationToList(m map[string]*model_struct.LocalConversation) (cs []*model_struct.LocalConversation) {
