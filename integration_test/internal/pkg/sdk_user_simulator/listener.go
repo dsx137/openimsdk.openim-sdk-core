@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync"
 
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/config"
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/vars"
@@ -272,14 +273,35 @@ func (t *testConnListener) OnError(code int32, msg string) {
 
 type TestSendMsgCallBackListener struct {
 	UserID string
+	done   chan error
+	once   sync.Once
 }
 
-func (t TestSendMsgCallBackListener) OnError(errCode int32, errMsg string) {
+func NewTestSendMsgCallBackListener(userID string) *TestSendMsgCallBackListener {
+	return &TestSendMsgCallBackListener{UserID: userID, done: make(chan error, 1)}
+}
+
+func (t *TestSendMsgCallBackListener) OnError(errCode int32, errMsg string) {
 	fmt.Printf(">>> SEND CALLBACK ERROR userID=%s code=%d msg=%s\n", t.UserID, errCode, errMsg)
+	t.once.Do(func() {
+		t.done <- errs.NewCodeError(int(errCode), errMsg)
+	})
 }
 
-func (t TestSendMsgCallBackListener) OnSuccess(data string) {
+func (t *TestSendMsgCallBackListener) OnSuccess(data string) {
+	t.once.Do(func() {
+		t.done <- nil
+	})
 }
 
-func (t TestSendMsgCallBackListener) OnProgress(progress int) {
+func (t *TestSendMsgCallBackListener) OnProgress(progress int) {
+}
+
+func (t *TestSendMsgCallBackListener) Wait(ctx context.Context) error {
+	select {
+	case err := <-t.done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

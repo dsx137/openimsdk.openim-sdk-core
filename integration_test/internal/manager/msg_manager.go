@@ -75,8 +75,16 @@ func (m *TestMsgManager) sendSingleMessages(ctx context.Context, gr *reerrgroup.
 						ctx = ccontext.WithOperationID(ctx, sdkUtils.OperationIDGenerator())
 						t := time.Now()
 						log.ZWarn(ctx, "sendSingleMessages begin", nil)
-						ctx = ccontext.WithSendMessageCallback(ctx, sdk_user_simulator.TestSendMsgCallBackListener{UserID: msg.SendID})
-						_, err = testSDK.SendSingleMsg(ctx, msg, friend.FriendUserID)
+						listener := sdk_user_simulator.NewTestSendMsgCallBackListener(msg.SendID)
+						sendCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+						sendCtx = ccontext.WithSendMessageCallback(sendCtx, listener)
+						_, err = testSDK.SendSingleMsg(sendCtx, msg, friend.FriendUserID)
+						if err != nil {
+							cancel()
+							return err
+						}
+						err = listener.Wait(sendCtx)
+						cancel()
 						if err != nil {
 							return err
 						}
@@ -133,8 +141,16 @@ func (m *TestMsgManager) sendGroupMessages(ctx context.Context, gr *reerrgroup.G
 					ctx = ccontext.WithOperationID(ctx, sdkUtils.OperationIDGenerator())
 					t := time.Now()
 					log.ZWarn(ctx, "sendGroupMessages begin", nil)
-					ctx = ccontext.WithSendMessageCallback(ctx, sdk_user_simulator.TestSendMsgCallBackListener{UserID: msg.SendID})
-					_, err = testSDK.SendGroupMsg(ctx, msg, group)
+					listener := sdk_user_simulator.NewTestSendMsgCallBackListener(msg.SendID)
+					sendCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+					sendCtx = ccontext.WithSendMessageCallback(sendCtx, listener)
+					_, err = testSDK.SendGroupMsg(sendCtx, msg, group)
+					if err != nil {
+						cancel()
+						return err
+					}
+					err = listener.Wait(sendCtx)
+					cancel()
 					if err != nil {
 						return err
 					}
