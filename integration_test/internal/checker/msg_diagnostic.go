@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/sdk"
-	"github.com/openimsdk/openim-sdk-core/v3/pkg/constant"
+	"github.com/openimsdk/openim-sdk-core/v3/pkg/api"
+	"github.com/openimsdk/openim-sdk-core/v3/pkg/ccontext"
+	sdkUtils "github.com/openimsdk/openim-sdk-core/v3/pkg/utils"
 	"github.com/openimsdk/protocol/msg"
 )
 
@@ -18,13 +20,12 @@ func diagnoseMessageCount(ctx context.Context, testSDK *sdk.TestSDK, total, corr
 		return
 	}
 
-	resp := &msg.GetConversationsHasReadAndMaxSeqResp{}
+	diagnosticCtx := ccontext.WithOperationID(testSDK.SDK.Context(), sdkUtils.OperationIDGenerator())
+	var resp *msg.GetConversationsHasReadAndMaxSeqResp
 	for attempt := 0; attempt < 3; attempt++ {
-		err = testSDK.SDK.Conversation().SendReqWaitResp(
-			ctx,
+		resp, err = api.GetConversationsHasReadAndMaxSeq.Invoke(
+			diagnosticCtx,
 			&msg.GetConversationsHasReadAndMaxSeqReq{UserID: testSDK.UserID},
-			constant.GetConvMaxReadSeq,
-			resp,
 		)
 		if err == nil {
 			break
