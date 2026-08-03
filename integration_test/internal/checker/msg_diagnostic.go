@@ -9,6 +9,8 @@ import (
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/sdk"
 	"github.com/openimsdk/openim-sdk-core/v3/pkg/api"
 	"github.com/openimsdk/openim-sdk-core/v3/pkg/ccontext"
+	"github.com/openimsdk/openim-sdk-core/v3/pkg/constant"
+	"github.com/openimsdk/openim-sdk-core/v3/pkg/sdk_params_callback"
 	sdkUtils "github.com/openimsdk/openim-sdk-core/v3/pkg/utils"
 	"github.com/openimsdk/protocol/msg"
 )
@@ -59,9 +61,19 @@ func diagnoseMessageCount(ctx context.Context, testSDK *sdk.TestSDK, total, corr
 		seq := resp.Seqs[conversationID]
 		serverUnread := max(seq.MaxSeq-seq.HasReadSeq, 0)
 		serverSum += serverUnread
-		fmt.Printf(">>> DIAG userID=%s conv=%s local_unread=%d local_max_seq=%d server_unread=%d server_max_seq=%d server_has_read_seq=%d\n",
-			testSDK.UserID, conversationID, localByID[conversationID], localMaxSeqByID[conversationID],
-			serverUnread, seq.MaxSeq, seq.HasReadSeq)
+		localTextMessages := -1
+		searchResult, searchErr := testSDK.SDK.Conversation().SearchLocalMessages(ctx, &sdk_params_callback.SearchLocalMessagesParams{
+			ConversationID:  conversationID,
+			MessageTypeList: []int{constant.Text},
+			PageIndex:       1,
+			Count:           1000,
+		})
+		if searchErr == nil {
+			localTextMessages = searchResult.TotalCount
+		}
+		fmt.Printf(">>> DIAG userID=%s conv=%s local_unread=%d local_text_messages=%d local_max_seq=%d server_unread=%d server_max_seq=%d server_has_read_seq=%d\n",
+			testSDK.UserID, conversationID, localByID[conversationID], localTextMessages,
+			localMaxSeqByID[conversationID], serverUnread, seq.MaxSeq, seq.HasReadSeq)
 		delete(localByID, conversationID)
 	}
 
