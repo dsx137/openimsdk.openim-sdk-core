@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/openimsdk/openim-sdk-core/v3/integration_test/internal/config"
@@ -15,6 +16,7 @@ import (
 	"github.com/openimsdk/openim-sdk-core/v3/pkg/api"
 	"github.com/openimsdk/openim-sdk-core/v3/pkg/ccontext"
 	sdkUtils "github.com/openimsdk/openim-sdk-core/v3/pkg/utils"
+	msgPB "github.com/openimsdk/protocol/msg"
 	"github.com/openimsdk/protocol/sdkws"
 	userPB "github.com/openimsdk/protocol/user"
 	"github.com/openimsdk/tools/log"
@@ -116,6 +118,76 @@ func (t *TestUserManager) LoginByRate(ctx context.Context) error {
 func (t *TestUserManager) LoginLastUsers(ctx context.Context) error {
 	userIDs := vars.UserIDs[vars.LoginUserNum:]
 	return t.login(ctx, userIDs...)
+}
+
+func (t *TestUserManager) WaitServerMessagesReady(ctx context.Context, expected func(string) int) error {
+	userIDs := vars.UserIDs[vars.LoginUserNum:]
+	if len(userIDs) == 0 {
+		return nil
+	}
+
+	userContexts := make(map[string]context.Context, len(userIDs))
+	for _, userID := range userIDs {
+		token, err := t.GetUserToken(userID, config.PlatformID)
+		if err != nil {
+			return err
+		}
+		userCtx := ccontext.WithInfo(ctx, &ccontext.GlobalConfig{
+			UserID:   userID,
+			Token:    token,
+			IMConfig: &t.IMConfig,
+		})
+		userContexts[userID] = mcontext.SetOpUserID(userCtx, userID)
+	}
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	timer := time.NewTimer(time.Duration(config.MaxCheckLoopNum*config.CheckWaitSec) * time.Second)
+	defer timer.Stop()
+
+	for {
+		actual := make(map[string]int, len(userIDs))
+		for _, userID := range userIDs {
+			userCtx := ccontext.WithOperationID(userContexts[userID], sdkUtils.OperationIDGenerator())
+			resp, err := api.GetConversationsHasReadAndMaxSeq.Invoke(userCtx,
+				&msgPB.GetConversationsHasReadAndMaxSeqReq{UserID: userID})
+			if err != nil {
+				return err
+			}
+			for _, seq := range resp.Seqs {
+				actual[userID] += int(max(seq.MaxSeq-seq.HasReadSeq, 0))
+			}
+		}
+
+		ready, err := serverUnreadCountsReady(actual, expected)
+		if err != nil {
+			return err
+		}
+		if ready {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			return fmt.Errorf("server unread counts did not become ready: actual=%v", actual)
+		case <-ticker.C:
+		}
+	}
+}
+
+func serverUnreadCountsReady(actual map[string]int, expected func(string) int) (bool, error) {
+	for userID, count := range actual {
+		expectedCount := expected(userID)
+		if count > expectedCount {
+			return false, fmt.Errorf("server unread count exceeds expectation: userID=%s actual=%d expected=%d", userID, count, expectedCount)
+		}
+		if count < expectedCount {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (t *TestUserManager) login(ctx context.Context, userIDs ...string) error {
